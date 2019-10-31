@@ -21,6 +21,9 @@ class TFHubContext:
       self.init_op = tf.group([tf.global_variables_initializer(), tf.tables_initializer()])
     self.g.finalize()
 
+    self.session = tf.Session(graph=self.g)
+    self.session.run(self.init_op)
+
 
   def get_embedding(self, texts):
     # Reduce logging output.
@@ -38,5 +41,14 @@ class TFHubContext:
 
       return texts_embeddings
 
+  def get_embedding_wo_session(self, texts):
+    texts_embeddings = self.session.run(self.embedded_text, feed_dict={self.text_input: texts})
+
+    return texts_embeddings
+
   def close(self):
     print('TFHubContext closed')
+
+
+class UniversalSentenceEncodeMultilingual:
+  default_context = TFHubContext(url="https://tfhub.dev/google/universal-sentence-encoder-multilingual-large/1")

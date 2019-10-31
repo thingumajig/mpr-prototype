@@ -13,8 +13,8 @@ import preprocess_data as ppd
 # sys.stdout.reconfigure(encoding='utf-8')
 # st.set_option()
 
-# import tfhub_utils as tfh
-# embedder = tfh.TFHubContext()
+import tfhub_utils as tfh
+
 
 def show_row(row):
     st.markdown(f'''
@@ -49,8 +49,16 @@ work_columns = ['Название', 'Предприятие', 'Автор ини
                 # 'Количество лайков', 'Количество комментариев'
                 ]
 
+emb_columns = [
+  'Название_emb',
+  # 'Описание ситуации_emb',
+  # 'Проблема_emb',
+  # 'Решение_emb',
+  # 'Ожидаемый эффект_emb'
+]
 
-@st.cache
+
+@st.cache(allow_output_mutation=True)
 def load_data():
     # df = pd.read_hdf('ideas_emb.h5', key='ideas_emb')
     df = pd.read_hdf('emb.h5', key='emb')
@@ -61,6 +69,13 @@ def load_data():
         'Описание ситуации', 'Проблема', 'Решение', 'Ожидаемый эффект',
         # 'Количество лайков', 'Количество комментариев'
         # 'all_x', 'all_y', 'all_z',
+
+        'Название_emb',
+        # 'Описание ситуации_emb',
+        # 'Проблема_emb',
+        # 'Решение_emb',
+        # 'Ожидаемый эффект_emb',
+
         'short_x','short_y','short_z',
              # 'short_emb'
         ]]
@@ -76,7 +91,7 @@ NONE = '-None-'
 selected_list = []
 
 
-@st.cache
+@st.cache(allow_output_mutation=True)
 def col_value_counts(data, colName):
   return data[colName].value_counts(sort=True)
 
@@ -120,22 +135,22 @@ def multiselect_for_col(data, colName):
   return selected_values
 
 
-@st.cache
+@st.cache(allow_output_mutation=True)
 def data_filter(dt: pd.DataFrame, col, val):
     return dt[dt[col]==val]
 
-@st.cache
+@st.cache(allow_output_mutation=True)
 def data_filter_isin(dt: pd.DataFrame, col, values):
     return dt[dt[col].isin(values)]
 
-@st.cache
+@st.cache(allow_output_mutation=True)
 def find_subtext(df, txt):
     global work_columns
     df = df[work_columns]
     contains = df.stack().str.contains(txt).unstack()
     return contains[contains.any(1)].idxmax(1)
 
-@st.cache
+@st.cache(allow_output_mutation=True)
 def query_filter(dt: pd.DataFrame, query):
     if query:
         t = dt.assign(found_cols=find_subtext(dt, query))
@@ -145,18 +160,19 @@ def query_filter(dt: pd.DataFrame, query):
 
 from scipy.spatial.distance import cosine
 
-emb_columns = ['Название_emb', 'Описание ситуации_emb', 'Проблема_emb', 'Решение_emb', 'Ожидаемый эффект_emb']
 
-# @st.cache
-# def query_filter_emb(dt:pd.DataFrame, query):
-#   def calc_score(row, e):
-#     return max([1. - cosine(row[col], e) for col in emb_columns])
-#
-#   if query:
-#     e = embedder.get_embedding([query])[0]
-#     dt['score'] = dt.apply(lambda row: calc_score(row, e), axis=1, result_type='expand').apply(pd.Series)
-#     return dt[dt['score']>0.6]
-#   return dt
+
+# @st.cache(allow_output_mutation=True)
+def query_filter_emb(dt:pd.DataFrame, query):
+  def calc_score(row, e):
+    return max([1. - cosine(row[col], e) for col in emb_columns])
+
+  if query:
+    e = tfh.UniversalSentenceEncodeMultilingual.default_context.get_embedding_wo_session([query])[0]
+    # print(f'embedding: {dt.columns}')
+    dt['score'] = dt.apply(lambda row: calc_score(row, e), axis=1, result_type='expand').apply(pd.Series)
+    return dt[dt['score']>0.5].sort_values(by='score', ascending=False)
+  return dt
 
 
 def radio_list1(dt:pd.DataFrame, cols:list) -> pd.DataFrame:
@@ -173,7 +189,7 @@ def multiselect_list(dt:pd.DataFrame, cols:list) -> pd.DataFrame:
     return dt
 
 
-@st.cache
+@st.cache(allow_output_mutation=True)
 def prepare_vis(final_df):
   c_names = []
   dict = {'x': [i for i in range(0, 512)]}
@@ -269,7 +285,7 @@ def vis_tsne_3d(vis_dict):
 
   st.plotly_chart(fig, height=1000)
 
-@st.cache
+@st.cache(allow_output_mutation=True)
 def tsne_3d(vis_dict):
   c_names = vis_dict['c_names']
   emb_results = vis_dict['emb_results']
@@ -291,7 +307,7 @@ def vis_tsne_2d(vis_dict):
 
   st.plotly_chart(fig, height=1000)
 
-@st.cache
+@st.cache(allow_output_mutation=True)
 def tsne_2d(vis_dict):
   c_names = vis_dict['c_names']
   emb_results = vis_dict['emb_results']
@@ -308,7 +324,7 @@ def tsne_2d(vis_dict):
 ###=====================================================
 
 
-dt = query_filter(data, query)
+dt = query_filter_emb(data, query)
 
 if 'found_cols' in dt.columns:
     dt = dt.drop(columns=['found_cols'])
