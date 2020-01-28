@@ -82,7 +82,7 @@ sentencepiece==0.1.83
 six==1.12.0
 streamlit==0.49
 tensorboard==1.15.0
-tensorflow==1.15.0
+tensorflow==1.15.2
 tensorflow-estimator==1.15.1
 tensorflow-hub==0.6.0
 termcolor==1.1.0
